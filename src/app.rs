@@ -1,21 +1,27 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
+use std::sync::mpsc::Receiver;
 use eframe::{egui};
+use egui_dock::{DockArea,Style, Tree};
+use egui::plot::{Line, Plot, PlotPoints};
 
-use egui_dock::{DockArea, NodeIndex, Style, Tree};
-struct TabViewer {}
+struct TabViewer {
+    vec_y : Vec<i64>
+}
 
 impl egui_dock::TabViewer for TabViewer {
     type Tab = String;
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
         ui.label(format!("Content of {tab}"));
-            use egui::plot::{Line, Plot, PlotPoints};
-            let sin: PlotPoints = (0..1000).map(|i| {
-                let x = i as f64 * 0.01;
-                [x, x.sin()]
+
+            let position_request:PlotPoints = (0..self.vec_y.len()).map(|i| {
+                let x = i as f64;
+                let y = self.vec_y[i as usize] as f64;
+                [x, y]
             }).collect();
-            let line = Line::new(sin);
+
+            let line = Line::new(position_request);
             Plot::new("my_plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
     }
 
@@ -26,152 +32,30 @@ impl egui_dock::TabViewer for TabViewer {
 
 pub struct TemplateApp {
     tree: Tree<String>,
+    receiver: Receiver<i64>,
+    pub vec_y : Vec<i64>
 }
 
 impl TemplateApp {
-    pub fn  new(cc: &eframe::CreationContext<'_>) -> Self {
-        let mut tree = Tree::new(vec!["tab1".to_owned(), "tab2".to_owned()]);
-
-        // You can modify the tree before constructing the dock
-        let [a, b] = tree.split_left(NodeIndex::root(), 0.3, vec!["tab3".to_owned()]);
-        let [_, _] = tree.split_below(a, 0.7, vec!["tab4".to_owned()]);
-        let [_, _] = tree.split_below(b, 0.5, vec!["tab5".to_owned()]);
-
-        Self { tree }
+    pub fn  new(cc: &eframe::CreationContext<'_>,rx:Receiver<i64>) -> Self {
+        let tree = Tree::new(vec!["Position Request".to_owned(), "Position Response".to_owned()]);
+        let measurements_rx = rx;
+        let measurements_y = vec![];//0,1,2,3,4,5,6,7,8,9,0,2,4,6,8,10,9,6,3,0];
+        Self { tree,receiver:measurements_rx,vec_y:measurements_y }
     }
 }
 
 impl eframe::App for TemplateApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        DockArea::new(&mut self.tree)
-            .style(Style::from_egui(ctx.style().as_ref()))
-            .show(ctx, &mut TabViewer {});
-    }
-}
-
-//#[derive(serde::Deserialize, serde::Serialize)]
-//#[serde(default)] // if we add new fields, give them default values when deserializing old state
-/* pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    // this how you opt-out of serialization of a member
-    #[serde(skip)]
-    value: f32,
-} */
-
-/* impl Default for TemplateApp {
-    fn default() -> Self {
-        Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
-        }
-    }
-} */
-
-/* impl TemplateApp {
-    /// Called once before the first frame.
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // This is also where you can customized the look at feel of egui using
-        // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
-        // Load previous app state (if any).
-        // Note that you must enable the `persistence` feature for this to work.
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
-
-        Default::default()
-    }
-} */
-
-/* impl eframe::App for TemplateApp {
-    /// Called by the frame work to save state before shutdown.
-    fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
-    }
-
-    /// Called each time the UI needs repainting, which may be many times per second.
+     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-            });
-        });
-
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
-                });
-            });
-        });
-
-        egui::SidePanel::left("node_panel").show(ctx, |ui| {
-            ui.heading("Node Panel");
-
-            ui.heading("Node template");
-            
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            egui::warn_if_debug_build(ui);
-            use egui::plot::{Line, Plot, PlotPoints};
-            let sin: PlotPoints = (0..1000).map(|i| {
-                let x = i as f64 * 0.01;
-                [x, x.sin()]
-            }).collect();
-            let line = Line::new(sin);
-            Plot::new("my_plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
-        });
-        egui::Window::new("My Window").show(ctx, |ui| {
-            ui.label("Hello World!");
-         });
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally chose either panels OR windows.");
-            });
-        }
-
+        let value_or_error = self.receiver.recv();
+        let v = value_or_error.unwrap();
+        self.vec_y.push(v);
+        println!("Received {}",v);
+        //let mut measurements = self.vec_y.to_owned();
+        DockArea::new(&mut self.tree)
+            .style(Style::from_egui(ctx.style().as_ref()))
+            .show(ctx, &mut TabViewer {vec_y:self.vec_y.to_owned()});
     }
 }
- */
