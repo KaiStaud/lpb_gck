@@ -49,10 +49,11 @@ impl eframe::App for TemplateApp {
      /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let value_or_error = self.receiver.recv();
-        let v = value_or_error.unwrap();
-        self.vec_y.push(v);
-        println!("Received {}",v);
+        let value_or_error = match self.receiver.recv(){
+            Ok(value) =>self.vec_y.push(value),
+            Err(err) => (),
+        };
+
         //let mut measurements = self.vec_y.to_owned();
         DockArea::new(&mut self.tree)
             .style(Style::from_egui(ctx.style().as_ref()))

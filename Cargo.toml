@@ -17,7 +17,10 @@ serde = { version = "1", features = ["derive"]} # You only need this if you want
 egui_node_graph = "0.2"
 anyhow = "1.0"
 egui_dock = "0.2.1"
+lttng-ust = "0.1.0"
 
+[build-dependencies]
+lttng-ust-generate = "0.1.0"
 
 
 
