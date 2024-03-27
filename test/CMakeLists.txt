@@ -6,6 +6,7 @@ enable_testing()
 add_executable(tests
 inverse_kinematics_test.cpp
 trapezoidal_ramp_test.cpp
+virtual_gearbox_test.cpp
 )
 
 target_link_libraries(tests

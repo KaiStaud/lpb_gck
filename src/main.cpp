@@ -13,6 +13,9 @@
 #include "node_editor.h"
 #include "implot.h"
 #include "../lib/include/inverse_kinematics.hpp"
+#include "../lib/include/virtual_gearbox.hpp"
+#include "../lib/include/trapezoidal_ramp.hpp"
+
 // Taken from https://github.com/ocornut/imgui/issues/707
 
 void setFancyImguiStyle()
@@ -103,7 +106,7 @@ void openDialog(const std::string key, const std::string title, IGFD::FileDialog
     ImGuiFileDialog::Instance()->OpenDialog(key, title, ".cpp,.h,.txt", config);
 }
 
-std::string rDialog(const std::string key)
+void rDialog(const std::string key)
 {
     if (ImGuiFileDialog::Instance()->Display(key))
     {
@@ -123,6 +126,15 @@ std::string rDialog(const std::string key)
 std::vector<example::Node> nodes; 
 
 void plot_drives(std::vector<example::Node> Nodes,int length){
+
+const float v_max = 4;
+const float a_up = 2;
+const float a_down = 1;
+const float dt = 1;
+
+    using namespace Interpolation;
+    TrapezoidalRamp tp;
+    virtual_gearbox gearbox(200, 1, 1); 
     static ExampleAppLog log;
     log.Draw("title");
 
@@ -143,7 +155,7 @@ std::vector< Eigen::Vector3d > instructions;
     float y1[10];
     float x2[10];
     float y2[10];
-    
+ 
     for(int i=0;i<length;i++)
     {
         x[i]= Nodes[i].value;
@@ -155,22 +167,41 @@ std::vector< Eigen::Vector3d > instructions;
         y1[i]= res.effektor1[1];
         x2[i]= res.effektor2[0];
         y2[i]= res.effektor2[1];
-    
+
+
+        auto d = gearbox.calculate_degrees(res.effektor2);
+        auto s = gearbox.calculate_steps(d);
+
+        tp.set_electrical_constraints(1,1,1);
+        tp.set_constraints(v_max,a_up,a_down,dt);
+        tp.calculate_cp_at_time(32,9);
+
         if(Nodes.size() > last_size)
         {
             log.AddLog("----- IK Report -----\r\n");
             for(int i=0;i<length;i++)
             {
               log.AddLog("----- Node %i -----\n",i);
-              log.AddLog("E1 : x={%f},y={%f},z={%f}\n",i,x1[i],y1[i],0);
-              log.AddLog("E2 : x={%f},y={%f},z={%f}\r\n",i,x2[i],y2[i],0);
+              log.AddLog("E1 : x={%f},y={%f},z={%f}\n",x1[i],y1[i],0.0);
+              log.AddLog("E2 : x={%f},y={%f},z={%f}\r\n",x2[i],y2[i],0.0);
             }
         }
     }
     last_size = Nodes.size();
+    auto u = tp.calculate_cp_and_time(0);
+
     if (ImPlot::BeginPlot("tcp")) 
     {
-      ImPlot::PlotScatter("1st effektor",x,y,length);
+    ImPlot::SetupAxis(ImAxis_Y2, "Steps[]",ImPlotAxisFlags_AuxDefault);
+    ImPlot::SetupAxis(ImAxis_X2, "t[s]",ImPlotAxisFlags_AuxDefault);
+        ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
+
+    ImPlot::PlotScatter("1st effektor",x,y,length);
+    
+
+    ImPlot::SetAxes(ImAxis_X2, ImAxis_Y2);
+    ImPlot::PlotScatter("Verfahrkurve",&u.first[0],&u.second[0],u.first.size());
+    
     }
     ImPlot::EndPlot();
 
