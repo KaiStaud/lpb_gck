@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package pb.People;
+
+message Person
+{
+
+  int32  id               = 1;
+  string name             = 2;
+  string email            = 4;
+}
+
+enum UserEvent{
+    Upload = 0;
+    Download = 1;
+    Jog = 2;
+    Cancel =  3;
+
+}
+
+message user_event
+{
+
+  int32  id               = 1;
+  string name             = 2;
+  string email            = 4;
+  UserEvent type = 5;
+}

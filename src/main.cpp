@@ -15,6 +15,9 @@
 #include "../lib/include/inverse_kinematics.hpp"
 #include "../lib/include/virtual_gearbox.hpp"
 #include "../lib/include/trapezoidal_ramp.hpp"
+#include <ecal/ecal.h>
+#include <ecal/msg/protobuf/publisher.h>
+#include "gui_types.pb.h"
 
 // Taken from https://github.com/ocornut/imgui/issues/707
 
@@ -192,16 +195,13 @@ std::vector< Eigen::Vector3d > instructions;
 
     if (ImPlot::BeginPlot("tcp")) 
     {
-    ImPlot::SetupAxis(ImAxis_Y2, "Steps[]",ImPlotAxisFlags_AuxDefault);
-    ImPlot::SetupAxis(ImAxis_X2, "t[s]",ImPlotAxisFlags_AuxDefault);
+        ImPlot::SetupAxis(ImAxis_Y2, "Steps[]",ImPlotAxisFlags_AuxDefault);
+        ImPlot::SetupAxis(ImAxis_X2, "t[s]",ImPlotAxisFlags_AuxDefault);
         ImPlot::SetAxes(ImAxis_X1, ImAxis_Y1);
 
-    ImPlot::PlotScatter("1st effektor",x,y,length);
-    
-
-    ImPlot::SetAxes(ImAxis_X2, ImAxis_Y2);
-    ImPlot::PlotScatter("Verfahrkurve",&u.first[0],&u.second[0],u.first.size());
-    
+        ImPlot::PlotScatter("1st effektor",x,y,length);
+        ImPlot::SetAxes(ImAxis_X2, ImAxis_Y2);
+        ImPlot::PlotScatter("Verfahrkurve",&u.first[0],&u.second[0],u.first.size());
     }
     ImPlot::EndPlot();
 
@@ -216,8 +216,7 @@ std::vector< Eigen::Vector3d > instructions;
     {  
         ImPlot::PlotScatter("2nd effektor",x2,y2,length);
     }
-    ImPlot::EndPlot();
-    
+    ImPlot::EndPlot();   
 }
 
 
@@ -238,8 +237,10 @@ for (int i=0;i<1000;i++)
 
 }
 
-int main()
+int main(int argc, char **argv)
 {
+  eCAL::Initialize(argc, argv, "minimal_pub");
+    eCAL::protobuf::CPublisher<pb::People::Person> pub("person");
     sf::RenderWindow window{sf::VideoMode(640, 480), "ImGui + SFML = <3"};
     window.setFramerateLimit(60);
 
@@ -247,7 +248,7 @@ int main()
 
     auto &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    auto fancyFont = io.Fonts->AddFontFromFileTTF("/hdd/pbuilding/lpb-workspace/imgui-sfml-fetchcontent/resources/fonts/hubballi-regular.ttf", 20);
+    auto fancyFont = io.Fonts->AddFontFromFileTTF("./resources/fonts/hubballi-regular.ttf", 20);
     if (!ImGui::SFML::UpdateFontTexture())
     {
         std::cerr << "No luck\n";
@@ -307,6 +308,13 @@ int main()
                 if (ImGui::MenuItem("Exit", "Alt+F4"))
                 {
                 }
+                if (ImGui::MenuItem("Upload", "Alt+F4"))
+                {
+                    static int cnt = 0;
+                    pb::People::Person person;
+                    person.set_id(++cnt);
+                    pub.Send(person);
+                }   
                 ImGui::EndMenu();
             }
             ImGui::EndMainMenuBar();
@@ -353,6 +361,7 @@ int main()
 
         if (ImGui::Begin("Node Editor"))
         {
+
             ImNodes::CreateContext();
             example::NodeEditorInitialize("save_load.ini");
             example::NodeEditorShow();
