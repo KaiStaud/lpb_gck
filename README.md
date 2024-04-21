@@ -34,3 +34,7 @@ CMake >= 3.12
 Also, if you're on Linux, you'll need to install dependencies for building SFML
 specified
 [here](https://www.sfml-dev.org/tutorials/2.5/compile-with-cmake.php#installing-dependencies).
+
+Run inside Container
+---
+Inside the host shell run "host local:root" . After starting the container inside the container, the GUI is visible on the hosts screen.
